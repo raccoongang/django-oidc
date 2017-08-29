@@ -1,5 +1,6 @@
 # coding: utf-8
 
+from future.types.newstr import newstr
 from django.conf import settings
 from oic.exception import MissingAttribute
 from oic import oic, rndstr
@@ -57,6 +58,10 @@ class Client(oic.Client):
         logger.debug("body: %s" % body)
         logger.info("URL: %s" % url)
         logger.debug("ht_args: %s" % ht_args)
+
+        if isinstance(url, newstr):
+            p3_bytes = bytes(url)
+            url = p3_bytes.decode('utf-8', 'surrogateescape')
 
         resp = HttpResponseRedirect(url)
         if ht_args:
