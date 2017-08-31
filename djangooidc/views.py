@@ -181,6 +181,9 @@ def logout(request, next_page=None):
 
 
 def logout_cb(request):
-    """ Simple redirection view: after logout, just redirect to a parameter value inside the session """
-    next = request.session["next"] if "next" in request.session.keys() else "/"
-    return redirect(next)
+    return redirect("/")
+
+
+def k_logout(request):
+    logger.info('k_logout k_logout k_logout k_logout')
+    return redirect('/')
