@@ -2,6 +2,19 @@
 
 import logging
 
+from importlib import import_module
+from django.conf import settings
+from django.contrib.auth import logout as auth_logout, authenticate, login
+from django.contrib.auth.forms import AuthenticationForm
+from django.contrib.auth.views import login as auth_login_view, logout as auth_logout_view
+from django.views.decorators.csrf import csrf_exempt
+from django.shortcuts import redirect, render_to_response, resolve_url
+from django.http import HttpResponse, HttpResponseRedirect
+from django import forms
+from django.template import RequestContext
+from djangooidc.oidc import OIDCClients, OIDCError
+from oic.oic import OpenIDSchema
+
 try:
     from urllib.parse import parse_qs
     from urllib.parse import urlencode
@@ -9,17 +22,7 @@ except ImportError:
     from urlparse import parse_qs
     from urllib import urlencode
 
-from django.conf import settings
-from django.contrib.auth import logout as auth_logout, authenticate, login
-from django.contrib.auth.forms import AuthenticationForm
-from django.contrib.auth.views import login as auth_login_view, logout as auth_logout_view
-from django.shortcuts import redirect, render_to_response, resolve_url
-from django.http import HttpResponse, HttpResponseRedirect
-from django import forms
-from django.template import RequestContext
-from oic.oic.message import IdToken
-
-from djangooidc.oidc import OIDCClients, OIDCError
+SessionStore = import_module(settings.SESSION_ENGINE).SessionStore
 
 logger = logging.getLogger(__name__)
 
@@ -104,7 +107,7 @@ def authz_cb(request):
 
 def logout(request, next_page=None):
     if not "op" in request.session.keys():
-        return auth_logout_view(request, next_page)
+        return auth_logout_view(request, next_page='/')
 
     client = CLIENTS[request.session["op"]]
 
@@ -184,6 +187,21 @@ def logout_cb(request):
     return redirect("/")
 
 
+@csrf_exempt
 def k_logout(request):
-    logger.info('k_logout k_logout k_logout k_logout')
+    client = CLIENTS['KeyCloak']
+    _schema = OpenIDSchema
+    res = _schema().from_jwt(request.body,
+                             keyjar=client.keyjar,
+                             sender=client.provider_info["issuer"])
+    logger.info('response KeyCloak - {}'.format(res.items()))
+
+    try:
+        session_key = res['adapterSessionIds']
+        session = SessionStore(session_key=session_key[0])
+        session.flush()
+    except (KeyError, IndexError) as e:
+        logger.info('k_logout except - {}'.format(e))
+        pass
+
     return redirect('/')

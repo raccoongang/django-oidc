@@ -1,7 +1,10 @@
 # coding: utf-8
 
+import logging
+
 from future.types.newstr import newstr
 from django.conf import settings
+from django.http import HttpResponseRedirect
 from oic.exception import MissingAttribute
 from oic import oic, rndstr
 from oic.oauth2 import ErrorResponse
@@ -11,9 +14,6 @@ from oic.oic import AuthorizationRequest
 from oic.utils.authn.client import CLIENT_AUTHN_METHOD
 
 __author__ = 'roland'
-
-import logging
-from django.http import HttpResponseRedirect
 
 logger = logging.getLogger(__name__)
 
@@ -104,7 +104,9 @@ class Client(oic.Client):
                     "code": authresp["code"],
                     "redirect_uri": self.registration_response["redirect_uris"][0],
                     "client_id": self.client_id,
-                    "client_secret": self.client_secret
+                    "client_secret": self.client_secret,
+                    "client_session_state": session.session_key,
+                    "client_session_host": settings.LMS_ROOT_URL,
                 }
 
                 atresp = self.do_access_token_request(

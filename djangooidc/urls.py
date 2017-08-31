@@ -8,5 +8,6 @@ urlpatterns = [
     url(r'^openid/(?P<op_name>.+)$', views.openid, name='openid_with_op_name'),
     url(r'^callback/login/?$', views.authz_cb, name='openid_login_cb'),
     url(r'^logout$', views.logout, name='logout'),
+    url(r'^k_logout$', views.k_logout, name='k_logout'),
     url(r'^callback/logout/?$', views.logout_cb, name='openid_logout_cb'),
 ]
