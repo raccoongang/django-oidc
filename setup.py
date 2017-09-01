@@ -29,10 +29,10 @@ history = open('HISTORY.rst').read().replace('.. :changelog:', '')
 setup(
     name='django-oidc',
     version=version,
-    description="""A Django OpenID Connect (OIDC) authentication backend""",
+    description="""A EDX OpenID Connect (OIDC) authentication backend""",
     long_description=readme + '\n\n' + history,
-    author='Marc-Antoine Gouillart',
-    author_email='marsu_pilami@msn.com',
+    author='raccoongang',
+    author_email='info@raccoongang.com',
     url='https://github.com/raccoongang/django-oidc',
     packages=find_packages(),
     include_package_data=True,

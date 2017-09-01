@@ -1,11 +1,9 @@
-Django OpenID Connect (OIDC) authentication provider
+Open EDX OpenID Connect (OIDC) authentication provider
 ====================================================
 
-This module makes it easy to integrate OpenID Connect as an authentication source in a Django project.
+This module makes it easy to integrate OpenID Connect as an authentication source in a Open EDX project.
 
 Behind the scenes, it uses Roland Hedberg's great pyoidc library.
-
-Modified by JHUAPL BOSS to support Python3
 
 Quickstart
 ----------
@@ -13,7 +11,7 @@ Quickstart
 Install djangooidc::
 
     # Latest code - unstable!
-    pip install git+https://github.com/jhuapl-boss/django-oidc.git
+    pip install git+https://github.com/raccoongang/django-oidc.git
     
 
 Then to use it in a Django project, add this to your urls.py::

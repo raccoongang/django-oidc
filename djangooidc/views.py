@@ -7,6 +7,7 @@ from django.conf import settings
 from django.contrib.auth import logout as auth_logout, authenticate, login
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth.views import login as auth_login_view, logout as auth_logout_view
+from django.http import HttpResponseBadRequest
 from django.views.decorators.csrf import csrf_exempt
 from django.shortcuts import redirect, render_to_response, resolve_url
 from django.http import HttpResponseRedirect
@@ -198,6 +199,10 @@ def k_logout(request):
                              keyjar=client.keyjar,
                              sender=client.provider_info["issuer"])
     logger.info('response KeyCloak - {}'.format(res.items()))
+
+    if res.get('action', '') != 'LOGOUT' \
+        and res.get('resource', '') != settings.ENV_TOKENS.get('OIDC_CLIENT_ID'):
+        return HttpResponseBadRequest()
 
     try:
         session_key_old = res['adapterSessionIds'][0]
