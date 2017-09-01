@@ -1,76 +1,60 @@
 Open EDX OpenID Connect (OIDC) authentication provider
-====================================================
+======================================================
 
 This module makes it easy to integrate OpenID Connect as an authentication source in a Open EDX project.
 
 Behind the scenes, it uses Roland Hedberg's great pyoidc library.
 
-Quickstart
-----------
+Install and configure
+---------------------
 
 Install djangooidc::
 
-    # Latest code - unstable!
     pip install git+https://github.com/raccoongang/django-oidc.git
     
 
-Then to use it in a Django project, add this to your urls.py::
+Add in ``/edx/app/edxapp/lms.env.json``::
+
+    "ADDL_INSTALLED_APPS" : [
+        "djangooidc"
+    ],
+    
+    "FEATURES" : {
+        ...
+        "ENABLE_COMBINED_LOGIN_REGISTRATION": true,
+        "ENABLE_THIRD_PARTY_AUTH": true,
+    }
+    "THIRD_PARTY_AUTH_BACKENDS": ["djangooidc.backends.OpenIdConnectBackend"],
+    
+    "OIDC_SRV_DISCOVERY_URL": "https://localhost::8080/auth/realms/name_realm",
+    "OIDC_CLIENT_ID": "client_id",
+    "OIDC_CLIENT_SECRET": "client_secret",
+
+Add in  ``lms/envs/aws.py``::
+
+    LOGIN_URL = "/openid/openid/KeyCloak"
+    LOGOUT_URL = "/openid/logout"
+    
+    OIDC_PROVIDERS = {
+       'KeyCloak': {
+           'srv_discovery_url': ENV_TOKENS.get('OIDC_SRV_DISCOVERY_URL'),
+           'behaviour': {
+               'response_type': 'code',
+               'scope': ['openid', 'profile', 'email'],
+           },
+           'client_registration': {
+               'client_id': ENV_TOKENS.get('OIDC_CLIENT_ID'),
+               'client_secret': ENV_TOKENS.get('OIDC_CLIENT_SECRET'),
+               'redirect_uris': [ '{}/openid/callback/login/'.format(LMS_ROOT_URL)],
+               'post_logout_redirect_uris': ['{}/openid/callback/logout/'.format(LMS_ROOT_URL)],
+           },
+       }
+    }
+
+Add in ``lms/urls.py``::
 
     url(r'openid/', include('djangooidc.urls')),
 
+Run migration::
 
-Then add the following items to your settings.py:
-
-* add `'djangooidc.backends.OpenIdConnectBackend'` to AUTHENTICATION_BACKENDS **after** the default
-  `'django.contrib.auth.backends.ModelBackend'`
-* set LOGIN_URL = 'openid'
-* add the specific OIDC parameters (change the absolute URLs to yours)::
-
-    # Information used when registering the client, this may be the same for all OPs
-    # Ignored if auto registration is not used.
-    OIDC_DYNAMIC_CLIENT_REGISTRATION_DATA = {
-        "application_type": "web",
-        "contacts": ["ops@example.com"],
-        "redirect_uris": ["http://localhost:8000/openid/callback/login/", ],
-        "post_logout_redirect_uris": ["http://localhost:8000/openid/callback/logout/", ]
-    }
-
-    # Default is using the 'code' workflow, which requires direct connectivity from your website to the OP.
-    OIDC_DEFAULT_BEHAVIOUR = {
-        "response_type": "code",
-        "scope": ["openid", "profile", "email", "address", "phone"],
-    }
-
-The configuration above is enough to use OIDC providers (OP) that support discovery and self client registration.
-In addition, you may want to use a specific OpenID Connect provider that is not auto-discoverable. This is done
-by adding items to the OIDC_PROVIDERS dictionary. See full documentation for parameter names.
-
-For example, an Azure AD OP would be::
-
-    OIDC_PROVIDERS = {
-        "Azure Active Directory": {
-            "srv_discovery_url": "https://sts.windows.net/aaaaaaaa-aaaa-1111-aaaa-xxxxxxxxxxxxx/",
-            "behaviour": OIDC_DEFAULT_BEHAVIOUR,
-            "client_registration": {
-                "client_id": "your_client_id",
-                "client_secret": "your_client_secret",
-                "redirect_uris": ["http://localhost:8000/openid/callback/login/"],
-                "post_logout_redirect_uris": ["http://localhost:8000/openid/callback/logout/"],
-            }
-        }
-    }
-
-
-You may now test the authentication by going to (on the development server) http://localhost:8000/openid/login or to any
-of your views that requires authentication.
-
-
-Features
---------
-
-* Ready to use Django authentication backend
-* No models stored in database - just some configuration in settings.py to keep it simple
-* Fully integrated with Django's internal accounts and permission system
-* Support for all OIDC workflows: Authorization Code flow, Implicit flow, Hybrid flow. Don't worry if you don't know
-  what these are - the package comes with great defaults.
-* Includes logout at the provider level
+    /edx/bin/python.edxapp /edx/app/edxapp/edx-platform/manage.py lms migrate --settings=aws
