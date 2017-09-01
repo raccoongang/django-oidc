@@ -1,74 +1,88 @@
 # coding: utf-8
 
-from __future__ import unicode_literals
-import datetime
-from django.conf import settings
+import re
+
 from django.contrib.auth import get_user_model
 from django.contrib.auth.backends import ModelBackend
+from student.forms import AccountCreationForm
+
+from .models import Keycloak as KeycloakModel
 
 
 class OpenIdConnectBackend(ModelBackend):
-    """
-    This backend checks a previously performed OIDC authentication.
-    If it is OK and the user already exists in the database, it is returned.
-    If it is OK and user does not exist in the database, it is created and returned unless setting
-        OIDC_CREATE_UNKNOWN_USER is False.
-    In all other cases, None is returned.
-    """
 
-    def authenticate(self, **kwargs):
+    def authenticate(self, request=None, **kwargs):
         user = None
         if not kwargs or 'sub' not in kwargs.keys():
             return user
 
+        user = self.get_user_by_id(request, kwargs)
+        return user
+
+    def get_user_by_id(self, request, id_token):
         UserModel = get_user_model()
-        username = self.clean_username(kwargs['sub'])
-        if 'upn' in kwargs.keys():
-            username = kwargs['upn']
+        uid = id_token['sub']
+        username = self.clean_username(id_token['preferred_username'])
 
-        # Some OP may actually choose to withhold some information, so we must test if it is present
-        openid_data = {'last_login': datetime.datetime.now()}
-        if 'first_name' in kwargs.keys():
-            openid_data['first_name'] = kwargs['first_name']
-        if 'given_name' in kwargs.keys():
-            openid_data['first_name'] = kwargs['given_name']
-        if 'christian_name' in kwargs.keys():
-            openid_data['first_name'] = kwargs['christian_name']
-        if 'family_name' in kwargs.keys():
-            openid_data['last_name'] = kwargs['family_name']
-        if 'last_name' in kwargs.keys():
-            openid_data['last_name'] = kwargs['last_name']
-        if 'email' in kwargs.keys():
-            openid_data['email'] = kwargs['email']
+        from third_party_auth.pipeline import make_random_password
 
-        # Note that this could be accomplished in one try-except clause, but
-        # instead we use get_or_create when creating unknown users since it has
-        # built-in safeguards for multiple threads.
-        if getattr(settings, 'OIDC_CREATE_UNKNOWN_USER', True):
-            args = {UserModel.USERNAME_FIELD: username, 'defaults': openid_data, }
-            user, created = UserModel.objects.update_or_create(**args)
-            if created:
-                user = self.configure_user(user)
-        else:
+        openid_data = {
+            'username': username,
+            'firstname': '',
+            'lastname': '',
+            'password': make_random_password()
+        }
+        if 'first_name' in id_token.keys():
+            openid_data['firstname'] = id_token['first_name']
+        if 'given_name' in id_token.keys():
+            openid_data['firstname'] = id_token['given_name']
+        if 'christian_name' in id_token.keys():
+            openid_data['firstname'] = id_token['christian_name']
+        if 'family_name' in id_token.keys():
+            openid_data['lastname'] = id_token['family_name']
+        if 'last_name' in id_token.keys():
+            openid_data['lastname'] = id_token['last_name']
+        if 'email' in id_token.keys():
+            openid_data['email'] = id_token['email']
+
+        openid_data['name'] = ' '.join([openid_data['firstname'],
+                                        openid_data['lastname']]).strip() or username
+
+        try:
+            kc_user = KeycloakModel.objects.get(uid=uid)
+            user = kc_user.user
+        except KeycloakModel.DoesNotExist:  # user doesn't exist with a keycloak UID
             try:
-                user = UserModel.objects.get_by_natural_key(username)
+                user = UserModel.objects.get(username=username)
+                user.delete()
             except UserModel.DoesNotExist:
-                return None
+                pass
+
+            form = AccountCreationForm(
+                data=openid_data,
+                extra_fields={},
+                extended_profile_fields={},
+                enforce_username_neq_password=False,
+                enforce_password_policy=False,
+                tos_required=False,
+            )
+
+            from student.views import _do_create_account
+
+            (user, profile, registration) = _do_create_account(form)
+            user.first_name = openid_data['firstname']
+            user.last_name = openid_data['lastname']
+            user.is_active = True
+            user.set_unusable_password()
+            user.save()
+
+            KeycloakModel.objects.create(user=user, uid=uid)
+
         return user
 
     def clean_username(self, username):
         """
         Performs any cleaning on the "username" prior to using it to get or
         create the user object.  Returns the cleaned username.
-
-        By default, returns the username unchanged.
         """
-        return username
-
-    def configure_user(self, user):
-        """
-        Configures a user after creation and returns the updated user.
-
-        By default, returns the user unmodified.
-        """
-        return user
+        return re.sub('[\W]', '', username)

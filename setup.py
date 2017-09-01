@@ -7,9 +7,9 @@ import sys
 import djangooidc
 
 try:
-    from setuptools import setup
+    from setuptools import setup, find_packages
 except ImportError:
-    from distutils.core import setup
+    from distutils.core import setup, find_packages
 
 version = djangooidc.__version__
 
@@ -33,10 +33,8 @@ setup(
     long_description=readme + '\n\n' + history,
     author='Marc-Antoine Gouillart',
     author_email='marsu_pilami@msn.com',
-    url='https://github.com/marcanpilami/django-oidc',
-    packages=[
-        'djangooidc',
-    ],
+    url='https://github.com/raccoongang/django-oidc',
+    packages=find_packages(),
     include_package_data=True,
     install_requires=[
         'django>=1.8',

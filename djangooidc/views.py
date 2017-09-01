@@ -9,10 +9,11 @@ from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth.views import login as auth_login_view, logout as auth_logout_view
 from django.views.decorators.csrf import csrf_exempt
 from django.shortcuts import redirect, render_to_response, resolve_url
-from django.http import HttpResponse, HttpResponseRedirect
+from django.http import HttpResponseRedirect
 from django import forms
 from django.template import RequestContext
 from djangooidc.oidc import OIDCClients, OIDCError
+from djangooidc.models import SessionKey
 from oic.oic import OpenIDSchema
 
 try:
@@ -96,7 +97,9 @@ def authz_cb(request):
         request.session["userinfo"] = userinfo
         user = authenticate(request=request, **userinfo)
         if user:
+            session_key_old = request.session.session_key
             login(request, user)
+            SessionKey.objects.create(old=session_key_old, new=request.session.session_key)
             return redirect(request.session["next"])
         else:
             raise Exception('this login is not valid in this application')
@@ -197,11 +200,15 @@ def k_logout(request):
     logger.info('response KeyCloak - {}'.format(res.items()))
 
     try:
-        session_key = res['adapterSessionIds']
-        session = SessionStore(session_key=session_key[0])
-        session.flush()
+        session_key_old = res['adapterSessionIds'][0]
     except (KeyError, IndexError) as e:
         logger.info('k_logout except - {}'.format(e))
         pass
+    else:
+        session_key = SessionKey.objects.filter(old=session_key_old).first()
+        if session_key:
+            session = SessionStore(session_key=session_key.new)
+            session.flush()
+            session_key.delete()
 
     return redirect('/')
