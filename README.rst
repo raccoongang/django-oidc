@@ -58,3 +58,6 @@ Add in ``lms/urls.py``::
 Run migration::
 
     /edx/bin/python.edxapp /edx/app/edxapp/edx-platform/manage.py lms migrate --settings=aws
+    
+    
+To use SLO  in edx, it is required to type ``"Admin URL" -> http://localhost:8000/openid/``  in  keycloak  clients configurations
