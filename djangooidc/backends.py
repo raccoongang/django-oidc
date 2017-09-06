@@ -16,73 +16,75 @@ class OpenIdConnectBackend(ModelBackend):
         if not kwargs or 'sub' not in kwargs.keys():
             return user
 
-        user = self.get_user_by_id(request, kwargs)
+        user = get_user_by_id(kwargs)
         return user
 
-    def get_user_by_id(self, request, id_token):
-        UserModel = get_user_model()
-        uid = id_token['sub']
-        username = self.clean_username(id_token['preferred_username'])
 
-        from third_party_auth.pipeline import make_random_password
+def get_user_by_id(id_token):
+    UserModel = get_user_model()
+    uid = id_token['sub']
+    username = clean_username(id_token['preferred_username'])
 
-        openid_data = {
-            'username': username,
-            'firstname': '',
-            'lastname': '',
-            'password': make_random_password()
-        }
-        if 'first_name' in id_token.keys():
-            openid_data['firstname'] = id_token['first_name']
-        if 'given_name' in id_token.keys():
-            openid_data['firstname'] = id_token['given_name']
-        if 'christian_name' in id_token.keys():
-            openid_data['firstname'] = id_token['christian_name']
-        if 'family_name' in id_token.keys():
-            openid_data['lastname'] = id_token['family_name']
-        if 'last_name' in id_token.keys():
-            openid_data['lastname'] = id_token['last_name']
-        if 'email' in id_token.keys():
-            openid_data['email'] = id_token['email']
+    from third_party_auth.pipeline import make_random_password
 
-        openid_data['name'] = ' '.join([openid_data['firstname'],
-                                        openid_data['lastname']]).strip() or username
+    openid_data = {
+        'username': username,
+        'firstname': '',
+        'lastname': '',
+        'password': make_random_password()
+    }
+    if 'first_name' in id_token.keys():
+        openid_data['firstname'] = id_token['first_name']
+    if 'given_name' in id_token.keys():
+        openid_data['firstname'] = id_token['given_name']
+    if 'christian_name' in id_token.keys():
+        openid_data['firstname'] = id_token['christian_name']
+    if 'family_name' in id_token.keys():
+        openid_data['lastname'] = id_token['family_name']
+    if 'last_name' in id_token.keys():
+        openid_data['lastname'] = id_token['last_name']
+    if 'email' in id_token.keys():
+        openid_data['email'] = id_token['email']
 
+    openid_data['name'] = ' '.join([openid_data['firstname'],
+                                    openid_data['lastname']]).strip() or username
+
+    try:
+        kc_user = KeycloakModel.objects.get(uid=uid)
+        user = kc_user.user
+    except KeycloakModel.DoesNotExist:  # user doesn't exist with a keycloak UID
         try:
-            kc_user = KeycloakModel.objects.get(uid=uid)
-            user = kc_user.user
-        except KeycloakModel.DoesNotExist:  # user doesn't exist with a keycloak UID
-            try:
-                user = UserModel.objects.get(username=username)
-                user.delete()
-            except UserModel.DoesNotExist:
-                pass
+            user = UserModel.objects.get(username=username)
+            user.delete()
+        except UserModel.DoesNotExist:
+            pass
 
-            form = AccountCreationForm(
-                data=openid_data,
-                extra_fields={},
-                extended_profile_fields={},
-                enforce_username_neq_password=False,
-                enforce_password_policy=False,
-                tos_required=False,
-            )
+        form = AccountCreationForm(
+            data=openid_data,
+            extra_fields={},
+            extended_profile_fields={},
+            enforce_username_neq_password=False,
+            enforce_password_policy=False,
+            tos_required=False,
+        )
 
-            from student.views import _do_create_account
+        from student.views import _do_create_account
 
-            (user, profile, registration) = _do_create_account(form)
-            user.first_name = openid_data['firstname']
-            user.last_name = openid_data['lastname']
-            user.is_active = True
-            user.set_unusable_password()
-            user.save()
+        (user, profile, registration) = _do_create_account(form)
+        user.first_name = openid_data['firstname']
+        user.last_name = openid_data['lastname']
+        user.is_active = True
+        user.set_unusable_password()
+        user.save()
 
-            KeycloakModel.objects.create(user=user, uid=uid)
+        KeycloakModel.objects.create(user=user, uid=uid)
 
-        return user
+    return user
 
-    def clean_username(self, username):
-        """
-        Performs any cleaning on the "username" prior to using it to get or
-        create the user object.  Returns the cleaned username.
-        """
-        return re.sub('[\W]', '', username)
+
+def clean_username(username):
+    """
+    Performs any cleaning on the "username" prior to using it to get or
+    create the user object.  Returns the cleaned username.
+    """
+    return re.sub('[\W]', '_', username)
