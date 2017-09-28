@@ -23,12 +23,11 @@ Add in ``/edx/app/edxapp/lms.env.json``::
         ...
         "ENABLE_COMBINED_LOGIN_REGISTRATION": true,
         "ENABLE_THIRD_PARTY_AUTH": true,
+        "OIDC_SRV_DISCOVERY_URL": "https://localhost::8080/auth/realms/name_realm",
+        "OIDC_CLIENT_ID": "client_id",
+        "OIDC_CLIENT_SECRET": "client_secret",
     }
     "THIRD_PARTY_AUTH_BACKENDS": ["djangooidc.backends.OpenIdConnectBackend"],
-    
-    "OIDC_SRV_DISCOVERY_URL": "https://localhost::8080/auth/realms/name_realm",
-    "OIDC_CLIENT_ID": "client_id",
-    "OIDC_CLIENT_SECRET": "client_secret",
 
 Add in  ``lms/envs/aws.py``::
 
@@ -37,14 +36,14 @@ Add in  ``lms/envs/aws.py``::
     
     OIDC_PROVIDERS = {
        'KeyCloak': {
-           'srv_discovery_url': ENV_TOKENS.get('OIDC_SRV_DISCOVERY_URL'),
+           'srv_discovery_url': FEATURES.get('OIDC_SRV_DISCOVERY_URL'),
            'behaviour': {
                'response_type': 'code',
                'scope': ['openid', 'profile', 'email'],
            },
            'client_registration': {
-               'client_id': ENV_TOKENS.get('OIDC_CLIENT_ID'),
-               'client_secret': ENV_TOKENS.get('OIDC_CLIENT_SECRET'),
+               'client_id': FEATURES.get('OIDC_CLIENT_ID'),
+               'client_secret': FEATURES.get('OIDC_CLIENT_SECRET'),
                'redirect_uris': ['{}/openid/callback/login/'.format(LMS_ROOT_URL)
                                  '{}/openid/callback/login/'.format(FEATURES.get('PREVIEW_LMS_BASE', ''))],
                'post_logout_redirect_uris': ['{}/openid/callback/logout/'.format(LMS_ROOT_URL)],
