@@ -13,6 +13,8 @@ from oic.oic import RegistrationResponse
 from oic.oic import AuthorizationRequest
 from oic.utils.authn.client import CLIENT_AUTHN_METHOD
 
+from courseware.access_utils import in_preview_mode
+
 __author__ = 'roland'
 
 logger = logging.getLogger(__name__)
@@ -36,12 +38,18 @@ class Client(oic.Client):
     def create_authn_request(self, session, acr_value=None, **kwargs):
         session["state"] = rndstr()
         session["nonce"] = rndstr()
+
+        if in_preview_mode():
+            redirect_uri = self.registration_response["redirect_uris"][1]
+        else:
+            redirect_uri = self.registration_response["redirect_uris"][0]
+
         request_args = {
             "response_type": self.behaviour["response_type"],
             "scope": self.behaviour["scope"],
             "state": session["state"],
             "nonce": session["nonce"],
-            "redirect_uri": self.registration_response["redirect_uris"][0]
+            "redirect_uri": redirect_uri
         }
 
         if acr_value is not None:
@@ -100,9 +108,14 @@ class Client(oic.Client):
         if self.behaviour["response_type"] == "code":
             # get the access token
             try:
+                if in_preview_mode():
+                    redirect_uri = self.registration_response["redirect_uris"][1]
+                else:
+                    redirect_uri = self.registration_response["redirect_uris"][0]
+
                 args = {
                     "code": authresp["code"],
-                    "redirect_uri": self.registration_response["redirect_uris"][0],
+                    "redirect_uri": redirect_uri,
                     "client_id": self.client_id,
                     "client_secret": self.client_secret,
                     "client_session_state": session.session_key,
