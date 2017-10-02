@@ -12,8 +12,8 @@ from oic.oic import ProviderConfigurationResponse, AuthorizationResponse
 from oic.oic import RegistrationResponse
 from oic.oic import AuthorizationRequest
 from oic.utils.authn.client import CLIENT_AUTHN_METHOD
+from xmodule.util.django import get_current_request_hostname
 
-from courseware.access_utils import in_preview_mode
 
 __author__ = 'roland'
 
@@ -39,17 +39,12 @@ class Client(oic.Client):
         session["state"] = rndstr()
         session["nonce"] = rndstr()
 
-        if in_preview_mode():
-            redirect_uri = self.registration_response["redirect_uris"][1]
-        else:
-            redirect_uri = self.registration_response["redirect_uris"][0]
-
         request_args = {
             "response_type": self.behaviour["response_type"],
             "scope": self.behaviour["scope"],
             "state": session["state"],
             "nonce": session["nonce"],
-            "redirect_uri": redirect_uri
+            "redirect_uri":  self.registration_response["redirect_uri"].format(get_current_request_hostname())
         }
 
         if acr_value is not None:
@@ -108,14 +103,9 @@ class Client(oic.Client):
         if self.behaviour["response_type"] == "code":
             # get the access token
             try:
-                if in_preview_mode():
-                    redirect_uri = self.registration_response["redirect_uris"][1]
-                else:
-                    redirect_uri = self.registration_response["redirect_uris"][0]
-
                 args = {
                     "code": authresp["code"],
-                    "redirect_uri": redirect_uri,
+                    "redirect_uri": self.registration_response["redirect_uri"].format(get_current_request_hostname()),
                     "client_id": self.client_id,
                     "client_secret": self.client_secret,
                     "client_session_state": session.session_key,
@@ -161,7 +151,7 @@ class OIDCClients(object):
         self.client_cls = Client
         self.config = config
 
-        for key, val in config.OIDC_PROVIDERS.items():
+        for key, val in config.items():
             if key == "":
                 continue
             else:
