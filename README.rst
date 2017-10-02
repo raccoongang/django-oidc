@@ -81,4 +81,5 @@ While microsites settings add to Site configurations the following strings::
   }
 
 Example
-![microsites settings](img/microsites_settings.png)
+
+    .. image:: img/microsites_settings.png
