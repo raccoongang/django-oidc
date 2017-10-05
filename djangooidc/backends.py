@@ -4,6 +4,8 @@ import re
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.backends import ModelBackend
+from django.core.validators import ValidationError
+from django.db.models import Q
 from student.forms import AccountCreationForm
 
 from .models import Keycloak as KeycloakModel
@@ -16,7 +18,11 @@ class OpenIdConnectBackend(ModelBackend):
         if not kwargs or 'sub' not in kwargs.keys():
             return user
 
-        user = get_user_by_id(kwargs)
+        try:
+            user = get_user_by_id(kwargs)
+        except ValidationError:
+            return None
+
         return user
 
 
@@ -53,29 +59,26 @@ def get_user_by_id(id_token):
         kc_user = KeycloakModel.objects.get(uid=uid)
         user = kc_user.user
     except KeycloakModel.DoesNotExist:  # user doesn't exist with a keycloak UID
-        try:
-            user = UserModel.objects.get(username=username)
-            user.delete()
-        except UserModel.DoesNotExist:
-            pass
+        user = UserModel.objects.filter(Q(username=username) | Q(email=openid_data.get('email'))).first()
 
-        form = AccountCreationForm(
-            data=openid_data,
-            extra_fields={},
-            extended_profile_fields={},
-            enforce_username_neq_password=False,
-            enforce_password_policy=False,
-            tos_required=False,
-        )
+        if user is None:
+            form = AccountCreationForm(
+                data=openid_data,
+                extra_fields={},
+                extended_profile_fields={},
+                enforce_username_neq_password=False,
+                enforce_password_policy=False,
+                tos_required=False,
+            )
 
-        from student.views import _do_create_account
+            from student.views import _do_create_account
 
-        (user, profile, registration) = _do_create_account(form)
-        user.first_name = openid_data['firstname']
-        user.last_name = openid_data['lastname']
-        user.is_active = True
-        user.set_unusable_password()
-        user.save()
+            (user, profile, registration) = _do_create_account(form)
+            user.first_name = openid_data['firstname']
+            user.last_name = openid_data['lastname']
+            user.is_active = True
+            user.set_unusable_password()
+            user.save()
 
         KeycloakModel.objects.create(user=user, uid=uid)
 
