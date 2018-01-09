@@ -5,10 +5,12 @@ import re
 from django.contrib.auth import get_user_model
 from django.contrib.auth.backends import ModelBackend
 from django.core.validators import ValidationError
-from django.db.models import Q
 from student.forms import AccountCreationForm
 
 from .models import Keycloak as KeycloakModel
+
+
+MAX_LENGTH_USERNAME = 30
 
 
 class OpenIdConnectBackend(ModelBackend):
@@ -59,9 +61,10 @@ def get_user_by_id(id_token):
         kc_user = KeycloakModel.objects.get(uid=uid)
         user = kc_user.user
     except KeycloakModel.DoesNotExist:  # user doesn't exist with a keycloak UID
-        user = UserModel.objects.filter(Q(username=username) | Q(email=openid_data.get('email'))).first()
+        user = UserModel.objects.filter(email=openid_data.get('email')).first()
 
         if user is None:
+            openid_data['username'] = unique_username(username)
             form = AccountCreationForm(
                 data=openid_data,
                 extra_fields={},
@@ -90,4 +93,25 @@ def clean_username(username):
     Performs any cleaning on the "username" prior to using it to get or
     create the user object.  Returns the cleaned username.
     """
-    return re.sub('[\W]', '_', username)
+    return re.sub('[\W]', '_', username)[:MAX_LENGTH_USERNAME]
+
+
+def unique_username(username):
+    UserModel = get_user_model()
+    new_username = username
+    prefix = 1
+
+    while True:
+        if UserModel.objects.filter(username=new_username).exists():
+            str_prefix = str(prefix)
+
+            if (len(new_username) + len(str_prefix)) > MAX_LENGTH_USERNAME:
+                new_username = username[:MAX_LENGTH_USERNAME-len(str_prefix)] + str(prefix)
+            else:
+                new_username = username + str(prefix)
+
+            prefix += 1
+        else:
+            break
+
+    return new_username
