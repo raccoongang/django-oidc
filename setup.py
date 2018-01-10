@@ -39,6 +39,7 @@ setup(
     install_requires=[
         'django>=1.8',
         'oic>=0.7.6',
+        'cryptography'<=1.9,
     ],
     license="Apache Software License",
     zip_safe=False,
