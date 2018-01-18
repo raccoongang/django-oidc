@@ -156,8 +156,7 @@ def k_logout(request):
                              sender=client.provider_info["issuer"])
     logger.info('response KeyCloak - {}'.format(res.items()))
 
-    if res.get('action', '') != 'LOGOUT' \
-        and res.get('resource', '') != settings.ENV_TOKENS.get('OIDC_CLIENT_ID'):
+    if res.get('action', '') != 'LOGOUT':
         return HttpResponseBadRequest()
 
     try:
