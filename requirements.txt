@@ -1,4 +1,4 @@
 setuptools>6
 django>=1.8,<1.9
-oic>=0.7.6
+oic==0.12.0
 cryptography>=1.5.3,<=1.9
