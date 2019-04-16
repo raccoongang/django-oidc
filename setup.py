@@ -38,7 +38,7 @@ setup(
     include_package_data=True,
     install_requires=[
         'django>=1.8',
-        'oic>=0.7.6',
+        'oic==0.12.0',
         'cryptography<=1.9',
     ],
     license="Apache Software License",
