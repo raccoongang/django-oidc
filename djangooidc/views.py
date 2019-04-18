@@ -66,7 +66,7 @@ def authz_cb(request):
 
 
 def logout(request, next_page=None):
-    if not "op" in request.session.keys():
+    if not "op" in request.session.keys() or not "access_token" in request.session.keys():  # let's assume this is staff user
         return auth_logout_view(request, next_page='/')
 
     client = get_client()[request.session["op"]]
